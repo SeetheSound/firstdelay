@@ -21,6 +21,11 @@ FirstDelayAudioProcessor::FirstDelayAudioProcessor()
                      #endif
                        )
 #endif
+    , state(*this, nullptr, "STATE", {
+        std::make_unique<juce::AudioParameterFloat>("gain", "Gain", 0.0f, 1.0f, 1.0f),
+        std::make_unique<juce::AudioParameterFloat>("feedback", "Delay Feedback", 0.0f, 1.0f, .350f),
+        std::make_unique<juce::AudioParameterFloat>("mix", "Dry / wet", 0.0f, 1.0f, .50f),
+        })
 {
 }
 
@@ -95,6 +100,11 @@ void FirstDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+    int delayMilliseconds = 200;
+    auto delaySamples = (int)std::round(sampleRate * delayMilliseconds / 1000.0);
+    delayBuffer.setSize(2, delaySamples);
+    delayBuffer.clear();
+    delayBufferPos = 0;
 }
 
 void FirstDelayAudioProcessor::releaseResources()
@@ -129,6 +139,7 @@ bool FirstDelayAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
+//HEY lOOK HERE Trey's notes for new developers!!!!!!!!!! THIS IS WHERE THE FUN STUFF HAPPENS. This section is where the meat of the plugin (how you make changes to the audio creating the effect) happens. 
 void FirstDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -150,37 +161,71 @@ void FirstDelayAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
+  
+    auto& parameters = getParameters();
+    float gain      = parameters[0]->getValue();
+    float feedback  = parameters[1]->getValue();
+    float mix       = parameters[2]->getValue();
+
+    int delayBufferSize = delayBuffer.getNumSamples();
+
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer (channel);
+        float* channelData = buffer.getWritePointer(channel);
+        int delayPos = delayBufferPos;
 
-        // ..do something to the data...
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            float drySample = channelData[i];
+
+            float delaySample = delayBuffer.getSample(channel, delayPos) * feedback;
+            delayBuffer.setSample(channel, delayPos, drySample + delaySample);
+
+            delayPos++;
+            if (delayPos == delayBufferSize)
+                delayPos == 0;
+
+            channelData[i] = (drySample * (1.0f - mix)) + (delaySample * mix);
+            channelData[i] *= gain;
+        }
     }
-}
 
+    delayBufferPos += buffer.getNumSamples();
+    if (delayBufferPos >= delayBufferSize)
+        delayBufferPos -= delayBufferSize;
+}
+//This is the end of the fun part.
 //==============================================================================
 bool FirstDelayAudioProcessor::hasEditor() const
 {
     return true; // (change this to false if you choose to not supply an editor)
 }
 
+//Notes from Trey for new developers!!! this is where you create the editor so the user can manipulate the parameter
 juce::AudioProcessorEditor* FirstDelayAudioProcessor::createEditor()
 {
     return new FirstDelayAudioProcessorEditor (*this);
+    //return new juce::GenericAudioProcessorEditor(*this);
 }
 
 //==============================================================================
+//!!!Notes from Trey for new developers!!! Hey the last to blocks are reserved for seting and getting states(when the user saves the plugin)
 void FirstDelayAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+
+    if (auto xmlState = state.copyState().createXml())
+        copyXmlToBinary(*xmlState, destData);
 }
 
 void FirstDelayAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    if (auto xmlState = getXmlFromBinary(data, sizeInBytes))
+        state.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
 //==============================================================================

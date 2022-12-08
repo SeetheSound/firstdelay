@@ -29,5 +29,11 @@ private:
     // access the processor object that created it.
     FirstDelayAudioProcessor& audioProcessor;
 
+    juce::Slider gainSlider, feedbackSlider, mixSlider;
+
+    juce::AudioProcessorValueTreeState::SliderAttachment gainAttatchment,
+                                                         feedbackAttatchment,
+                                                         mixAttatchment;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FirstDelayAudioProcessorEditor)
 };
