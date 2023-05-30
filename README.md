@@ -1,3 +1,3 @@
 # firstdelay
 
-Hey if you are reading this please go listen never catch me by flying lotus. Its a great track. Also this is my start into making audio plugins for fun. I Want to make sure that you know I started this with a tutorial and am learning. I am building off of these projects to get a understanding of c++ and dsp. I AM NOT THE ORIGINAL CREATOR AND AM ONLY DOING THIS TO LEARN.
+Hey this is from a tutorial I followed to get an idea of how C++ works. This is not an original design, but more of a learning project to learn how C++ works and the juce framework. All credit goes to Joshua Hodge. He is a great programmer and I have learned so much from the tutorials
